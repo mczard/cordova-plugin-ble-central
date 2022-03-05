@@ -117,6 +117,7 @@ public class BLECentralPlugin extends CordovaPlugin {
     private static final int REQUEST_ACCESS_LOCATION = 2;
     private CallbackContext permissionCallback;
     private UUID[] serviceUUIDs;
+    private String[] names;
     private int scanSeconds;
     private ScanSettings scanSettings;
 
@@ -174,15 +175,17 @@ public class BLECentralPlugin extends CordovaPlugin {
         if (action.equals(SCAN)) {
 
             UUID[] serviceUUIDs = parseServiceUUIDList(args.getJSONArray(0));
+            String[] names = parseNameList(args.getJSONArray(2));
             int scanSeconds = args.getInt(1);
             resetScanOptions();
-            findLowEnergyDevices(callbackContext, serviceUUIDs, scanSeconds);
+            findLowEnergyDevices(callbackContext, serviceUUIDs, scanSeconds, names);
 
         } else if (action.equals(START_SCAN)) {
 
             UUID[] serviceUUIDs = parseServiceUUIDList(args.getJSONArray(0));
+            String[] names = parseNameList(args.getJSONArray(2));
             resetScanOptions();
-            findLowEnergyDevices(callbackContext, serviceUUIDs, -1);
+            findLowEnergyDevices(callbackContext, serviceUUIDs, -1, names);
 
         } else if (action.equals(STOP_SCAN)) {
 
@@ -367,6 +370,7 @@ public class BLECentralPlugin extends CordovaPlugin {
         } else if (action.equals(START_SCAN_WITH_OPTIONS)) {
             UUID[] serviceUUIDs = parseServiceUUIDList(args.getJSONArray(0));
             JSONObject options = args.getJSONObject(1);
+            String[] names = parseNameList(args.getJSONArray(2));
 
             resetScanOptions();
             this.reportDuplicates = options.optBoolean("reportDuplicates", false);
@@ -471,7 +475,7 @@ public class BLECentralPlugin extends CordovaPlugin {
                 if (reportDelay >= 0L)
                     scanSettings.setReportDelay( reportDelay );
 
-                findLowEnergyDevices(callbackContext, serviceUUIDs, -1, scanSettings.build() );
+                findLowEnergyDevices(callbackContext, serviceUUIDs, -1, scanSettings.build(), names );
             }
 
         } else if (action.equals(BONDED_DEVICES)) {
@@ -514,6 +518,17 @@ public class BLECentralPlugin extends CordovaPlugin {
         }
 
         return serviceUUIDs.toArray(new UUID[jsonArray.length()]);
+    }
+
+    private String[] parseNameList(JSONArray jsonArray) throws JSONException {
+        List<String> names = new ArrayList<String>();
+
+        for(int i = 0; i < jsonArray.length(); i++){
+            String name = jsonArray.getString(i);
+            names.add(name);
+        }
+
+        return names.toArray(new String[jsonArray.length()]);
     }
 
     private void onBluetoothStateChange(Intent intent) {
@@ -911,11 +926,11 @@ public class BLECentralPlugin extends CordovaPlugin {
     };
 
 
-    private void findLowEnergyDevices(CallbackContext callbackContext, UUID[] serviceUUIDs, int scanSeconds) {
-        findLowEnergyDevices( callbackContext, serviceUUIDs, scanSeconds, new ScanSettings.Builder().build() );
+    private void findLowEnergyDevices(CallbackContext callbackContext, UUID[] serviceUUIDs, int scanSeconds, String[] names) {
+        findLowEnergyDevices( callbackContext, serviceUUIDs, scanSeconds, new ScanSettings.Builder().build(), names );
     }
 
-    private void findLowEnergyDevices(CallbackContext callbackContext, UUID[] serviceUUIDs, int scanSeconds, ScanSettings scanSettings) {
+    private void findLowEnergyDevices(CallbackContext callbackContext, UUID[] serviceUUIDs, int scanSeconds, ScanSettings scanSettings, String[] names) {
 
 
         if (!locationServicesEnabled()) {
@@ -926,6 +941,7 @@ public class BLECentralPlugin extends CordovaPlugin {
             if (!PermissionHelper.hasPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
                 permissionCallback = callbackContext;
                 this.serviceUUIDs = serviceUUIDs;
+                this.names = names;
                 this.scanSeconds = scanSeconds;
                 this.scanSettings = scanSettings;
 
@@ -945,6 +961,7 @@ public class BLECentralPlugin extends CordovaPlugin {
                 // save info so we can call this method again after permissions are granted
                 permissionCallback = callbackContext;
                 this.serviceUUIDs = serviceUUIDs;
+                this.names = names;
                 this.scanSeconds = scanSeconds;
                 this.scanSettings = scanSettings;
                 PermissionHelper.requestPermission(this, REQUEST_ACCESS_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION);
@@ -983,6 +1000,14 @@ public class BLECentralPlugin extends CordovaPlugin {
                 filters.add(filter);
             }
         }
+
+        if (names != null && names.length > 0) {
+            for (String name : names) {
+                ScanFilter filter = new ScanFilter.Builder().setDeviceName(name).build();
+                filters.add(filter);
+            }
+        }
+
         bluetoothLeScanner.startScan(filters, scanSettings, leScanCallback);
 
         if (scanSeconds > 0) {
@@ -1071,9 +1096,10 @@ public class BLECentralPlugin extends CordovaPlugin {
         switch(requestCode) {
             case REQUEST_ACCESS_LOCATION:
                 LOG.d(TAG, "User granted Location Access");
-                findLowEnergyDevices(permissionCallback, serviceUUIDs, scanSeconds, scanSettings);
+                findLowEnergyDevices(permissionCallback, serviceUUIDs, scanSeconds, scanSettings, names);
                 this.permissionCallback = null;
                 this.serviceUUIDs = null;
+                this.names = null;
                 this.scanSeconds = -1;
                 this.scanSettings = null;
                 break;

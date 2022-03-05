@@ -50,33 +50,39 @@ function convertToNativeJS(object) {
 var autoconnected = {};
 
 module.exports = {
-    scan: function (services, seconds, success, failure) {
+    scan: function (filters, seconds, success, failure) {
         var successWrapper = function (peripheral) {
             convertToNativeJS(peripheral);
             success(peripheral);
         };
-        cordova.exec(successWrapper, failure, 'BLE', 'scan', [services, seconds]);
+        const [services, names] = filters;
+
+        cordova.exec(successWrapper, failure, 'BLE', 'scan', [services, seconds, names || []]);
     },
 
-    startScan: function (services, success, failure) {
+    startScan: function (filters, success, failure) {
         var successWrapper = function (peripheral) {
             convertToNativeJS(peripheral);
             success(peripheral);
         };
-        cordova.exec(successWrapper, failure, 'BLE', 'startScan', [services]);
+
+        const [services, names] = filters;
+        cordova.exec(successWrapper, failure, 'BLE', 'startScan', [services, names || []]);
     },
 
     stopScan: function (success, failure) {
         cordova.exec(success, failure, 'BLE', 'stopScan', []);
     },
 
-    startScanWithOptions: function (services, options, success, failure) {
+    startScanWithOptions: function (filters, options, success, failure) {
         var successWrapper = function (peripheral) {
             convertToNativeJS(peripheral);
             success(peripheral);
         };
         options = options || {};
-        cordova.exec(successWrapper, failure, 'BLE', 'startScanWithOptions', [services, options]);
+
+        const [services, names] = filters;
+        cordova.exec(successWrapper, failure, 'BLE', 'startScanWithOptions', [services, options, names || []]);
     },
 
     // iOS only
@@ -244,11 +250,11 @@ module.exports = {
     },
 
     startLocationStateNotifications: function (success, failure) {
-      cordova.exec(success, failure, "BLE", "startLocationStateNotifications", []);
+        cordova.exec(success, failure, 'BLE', 'startLocationStateNotifications', []);
     },
 
     stopLocationStateNotifications: function (success, failure) {
-      cordova.exec(success, failure, "BLE", "stopLocationStateNotifications", []);
+        cordova.exec(success, failure, 'BLE', 'stopLocationStateNotifications', []);
     },
 
     startStateNotifications: function (success, failure) {
@@ -351,9 +357,9 @@ module.exports.withPromises = {
     },
 
     stopLocationStateNotifications: function () {
-      return new Promise(function(resolve, reject) {
-          module.exports.stopLocationStateNotifications(resolve, reject);
-      });
+        return new Promise(function (resolve, reject) {
+            module.exports.stopLocationStateNotifications(resolve, reject);
+        });
     },
 
     readRSSI: function (device_id) {
